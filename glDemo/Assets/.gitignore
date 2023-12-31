@@ -1,0 +1,3 @@
+## Patterns for model files that clash with parent .gitignore
+
+!*.obj
