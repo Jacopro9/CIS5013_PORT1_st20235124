@@ -1,0 +1,13 @@
+# Blender 3.4.1 MTL File: 'tier3.blend'
+# www.blender.org
+
+newmtl Material
+Ns 240.991745
+Ka 1.000000 1.000000 1.000000
+Ni 1.450000
+d 1.000000
+illum 2
+map_Kd C:/Users/jajwi/OneDrive/Pictures/textures/house_c3.tif
+map_Ks C:/Users/jajwi/OneDrive/Pictures/textures/house_g2.tif
+map_Ke C:/Users/jajwi/OneDrive/Pictures/textures/house_e.tif
+map_Bump -bm 2.000000 C:/Users/jajwi/OneDrive/Pictures/textures/house_n3.tif

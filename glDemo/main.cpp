@@ -78,7 +78,7 @@ bool				rotateRightPressed;
 // Scene objects
 AIMesh*				groundMesh = nullptr;
 AIMesh*				creatureMesh = nullptr;
-AIMesh*				columnMesh = nullptr;
+AIMesh*				buildingTier1Mesh = nullptr;
 Cylinder*			cylinderMesh = nullptr;
 
 
@@ -241,10 +241,10 @@ int main() {
 		creatureMesh->addTexture(string("Assets\\beast\\beast_texture.bmp"), FIF_BMP);
 	}
 	
-	columnMesh = new AIMesh(string("Assets\\column\\Column.obj"));
-	if (columnMesh) {
-		columnMesh->addTexture(string("Assets\\column\\column_d.bmp"), FIF_BMP);
-		columnMesh->addNormalMap(string("Assets\\column\\column_n.bmp"), FIF_BMP);
+	buildingTier1Mesh = new AIMesh(string("Assets\\buildings\\tier1.v2.obj"));
+	if (buildingTier1Mesh) {
+		buildingTier1Mesh->addTexture(string("Assets\\buildings\\house_c3.bmp"), FIF_BMP);
+		buildingTier1Mesh->addNormalMap(string("Assets\\buildings\\house_n3.bmp"), FIF_BMP);
 	}
 
 	cylinderMesh = new Cylinder(string("Assets\\cylinder\\cylinderT.obj"));
@@ -305,6 +305,8 @@ int main() {
 
 				cout << "Loading house sub-mesh " << i << endl;
 				houseModel.push_back(new AIMesh(houseScene, i));
+				houseModel[i]->addTexture(string("Assets\\buildings\\house_c3.bmp"), FIF_BMP);
+				houseModel[i]->addNormalMap(string("Assets\\buildings\\house_n3.bmp"), FIF_BMP);
 			}
 		}
 	}
@@ -344,8 +346,8 @@ int main() {
 // renderScene - function to render the current scene
 void renderScene()
 {
-	renderHouse();
-	//renderWithDirectionalLight();
+	//renderHouse();
+	renderWithDirectionalLight();
 	//renderWithPointLight();
 	//renderWithMultipleLights();
 }
@@ -428,14 +430,14 @@ void renderWithDirectionalLight() {
 	}
 
 	// Render diffuse textured column (to compare with normal mapped version rendered below)...
-	if (columnMesh) {
+	if (buildingTier1Mesh) {
 
-		mat4 modelTransform = glm::translate(identity<mat4>(), vec3(2.0f, 0.0f, 2.0f)) * glm::scale(identity<mat4>(), vec3(0.01f, 0.01f, 0.01f));
+		mat4 modelTransform = glm::translate(identity<mat4>(), vec3(2.0f, 0.0f, 2.0f)) * glm::scale(identity<mat4>(), vec3(0.1f, 0.1f, 0.1f));
 
 		glUniformMatrix4fv(texDirLightShader_modelMatrix, 1, GL_FALSE, (GLfloat*)&modelTransform);
 
-		columnMesh->setupTextures();
-		columnMesh->render();
+		buildingTier1Mesh->setupTextures();
+		buildingTier1Mesh->render();
 	}
 
 
@@ -453,14 +455,21 @@ void renderWithDirectionalLight() {
 	glUniform3fv(nMapDirLightShader_lightColour, 1, (GLfloat*)&(directLight.colour));
 
 	// Render columnMesh (follows same pattern / code structure as other objects)
-	if (columnMesh) {
+	if (buildingTier1Mesh) {
 
-		mat4 modelTransform = glm::translate(identity<mat4>(), vec3(0.0f, 0.0f, 2.0f)) * glm::scale(identity<mat4>(), vec3(0.01f, 0.01f, 0.01f));
+		mat4 modelTransform = glm::translate(identity<mat4>(), vec3(0.0f, 0.0f, 2.0f)) * glm::scale(identity<mat4>(), vec3(0.1f, 0.1f, 0.1f));
 
 		glUniformMatrix4fv(nMapDirLightShader_modelMatrix, 1, GL_FALSE, (GLfloat*)&modelTransform);
 
-		columnMesh->setupTextures();
-		columnMesh->render();
+		// Loop through array of meshes and render each one
+		for (AIMesh* mesh : houseModel) {
+			
+			mesh->setupTextures();
+			mesh->render();
+		}
+
+		/*buildingTier1Mesh->setupTextures();
+		buildingTier1Mesh->render();*/
 	}
 
 #pragma endregion
