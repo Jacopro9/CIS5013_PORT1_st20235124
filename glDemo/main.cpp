@@ -78,7 +78,6 @@ bool				rotateRightPressed;
 // Scene objects
 AIMesh*				groundMesh = nullptr;
 AIMesh*				creatureMesh = nullptr;
-AIMesh*				buildingTier1Mesh = nullptr;
 Cylinder*			cylinderMesh = nullptr;
 
 
@@ -140,7 +139,9 @@ bool rotateDirectionalLight = true;
 
 
 // House single / multi-mesh example
-vector<AIMesh*> houseModel = vector<AIMesh*>();
+vector<AIMesh*> tier1Model = vector<AIMesh*>();
+vector<AIMesh*> tier2Model = vector<AIMesh*>();
+vector<AIMesh*> tier3Model = vector<AIMesh*>();
 
 
 
@@ -161,8 +162,9 @@ void mouseButtonHandler(GLFWwindow* window, int button, int action, int mods);
 void mouseScrollHandler(GLFWwindow* window, double xoffset, double yoffset);
 void mouseEnterHandler(GLFWwindow* window, int entered);
 
-void multiMesh(string objectFile, string diffuseMapFile, string normalMapFile, vector<AIMesh*> model)
+vector<AIMesh*> multiMesh(string objectFile, string diffuseMapFile, string normalMapFile)
 {
+	vector<AIMesh*> model;
 	const struct aiScene* modelScene = aiImportFile(objectFile.c_str(),
 		aiProcess_GenSmoothNormals |
 		aiProcess_CalcTangentSpace |
@@ -184,11 +186,11 @@ void multiMesh(string objectFile, string diffuseMapFile, string normalMapFile, v
 				model[i]->addTexture(diffuseMapFile.c_str(), FIF_BMP);
 				model[i]->addNormalMap(normalMapFile.c_str(), FIF_BMP);
 			}
+			return model;
 		}
 	}
 	else cout << objectFile;
 }
-
 
 int main() {
 
@@ -267,12 +269,6 @@ int main() {
 	if (creatureMesh) {
 		creatureMesh->addTexture(string("Assets\\beast\\beast_texture.bmp"), FIF_BMP);
 	}
-	
-	buildingTier1Mesh = new AIMesh(string("Assets\\buildings\\tier1.v2.obj"));
-	if (buildingTier1Mesh) {
-		buildingTier1Mesh->addTexture(string("Assets\\buildings\\house_c3.bmp"), FIF_BMP);
-		buildingTier1Mesh->addNormalMap(string("Assets\\buildings\\house_n3.bmp"), FIF_BMP);
-	}
 
 	cylinderMesh = new Cylinder(string("Assets\\cylinder\\cylinderT.obj"));
 	
@@ -310,36 +306,10 @@ int main() {
 	nMapDirLightShader_lightColour = glGetUniformLocation(nMapDirLightShader, "lightColour");
 
 
-	//
-	// House example
-	//
-	//multiMesh(string("C:\\Users\\jajwi\\repos\\CIS5013_PORT1_st20235124\\glDemo\\Assets\\House\\tier1.v2.obj"), string("Assets\\buildings\\house_c3.bmp"), string("Assets\\buildings\\house_n3.bmp"), houseModel);
-	
-	string houseFilename = string("Assets\\House\\tier1.v2.obj");
-	const struct aiScene* houseScene = aiImportFile(houseFilename.c_str(),
-		aiProcess_GenSmoothNormals |
-		aiProcess_CalcTangentSpace |
-		aiProcess_Triangulate |
-		aiProcess_JoinIdenticalVertices |
-		aiProcess_SortByPType);
-
-	if (houseScene) {
-
-		cout << "House model: " << houseFilename << " has " << houseScene->mNumMeshes << " meshe(s)\n";
-
-		if (houseScene->mNumMeshes > 0) {
-
-			// For each sub-mesh, setup a new AIMesh instance in the houseModel array
-			for (int i = 0; i < houseScene->mNumMeshes; i++) {
-
-				cout << "Loading house sub-mesh " << i << endl;
-				houseModel.push_back(new AIMesh(houseScene, i));
-				houseModel[i]->addTexture(string("Assets\\buildings\\house_c3.bmp"), FIF_BMP);
-				houseModel[i]->addNormalMap(string("Assets\\buildings\\house_n3.bmp"), FIF_BMP);
-			}
-		}
-	}
-
+	// models of buildings
+	tier1Model = multiMesh(string("Assets\\buildings\\tier1.v2.obj"), string("Assets\\buildings\\house_c3.bmp"), string("Assets\\buildings\\house_n3.bmp"));
+	tier2Model = multiMesh(string("Assets\\buildings\\tier2.v2.obj"), string("Assets\\buildings\\house_c3.bmp"), string("Assets\\buildings\\house_n3.bmp"));
+	tier3Model = multiMesh(string("Assets\\buildings\\tier3.obj"), string("Assets\\buildings\\house_c3.bmp"), string("Assets\\buildings\\house_n3.bmp"));
 	
 	
 	//
@@ -402,7 +372,7 @@ void renderHouse() {
 	glUniformMatrix4fv(basicShader_mvpMatrix, 1, GL_FALSE, (GLfloat*)&mvpMatrix);
 
 	// Loop through array of meshes and render each one
-	for (AIMesh* mesh : houseModel) {
+	for (AIMesh* mesh : tier1Model) {
 
 		mesh->render();
 	}
@@ -458,18 +428,6 @@ void renderWithDirectionalLight() {
 		creatureMesh->render();
 	}
 
-	// Render diffuse textured column (to compare with normal mapped version rendered below)...
-	if (buildingTier1Mesh) {
-
-		mat4 modelTransform = glm::translate(identity<mat4>(), vec3(2.0f, 0.0f, 2.0f)) * glm::scale(identity<mat4>(), vec3(0.1f, 0.1f, 0.1f));
-
-		glUniformMatrix4fv(texDirLightShader_modelMatrix, 1, GL_FALSE, (GLfloat*)&modelTransform);
-
-		buildingTier1Mesh->setupTextures();
-		buildingTier1Mesh->render();
-	}
-
-
 	
 	//  *** normal mapping ***  Render the normal mapped column
 	// Plug in the normal map directional light shader
@@ -483,22 +441,45 @@ void renderWithDirectionalLight() {
 	glUniform3fv(nMapDirLightShader_lightDirection, 1, (GLfloat*)&(directLight.direction));
 	glUniform3fv(nMapDirLightShader_lightColour, 1, (GLfloat*)&(directLight.colour));
 
-	// Render columnMesh (follows same pattern / code structure as other objects)
-	if (buildingTier1Mesh) {
+	// Render buildings (follows same pattern / code structure as other objects)
+	if (tier1Model[0]) {
 
 		mat4 modelTransform = glm::translate(identity<mat4>(), vec3(0.0f, 0.0f, 2.0f)) * glm::scale(identity<mat4>(), vec3(0.1f, 0.1f, 0.1f));
 
 		glUniformMatrix4fv(nMapDirLightShader_modelMatrix, 1, GL_FALSE, (GLfloat*)&modelTransform);
 
 		// Loop through array of meshes and render each one
-		for (AIMesh* mesh : houseModel) {
+		for (AIMesh* mesh : tier1Model) {
 			
 			mesh->setupTextures();
 			mesh->render();
 		}
+	}
+	if (tier2Model[0]) {
 
-		/*buildingTier1Mesh->setupTextures();
-		buildingTier1Mesh->render();*/
+		mat4 modelTransform = glm::translate(identity<mat4>(), vec3(0.0f, 0.0f, 4.0f)) * glm::scale(identity<mat4>(), vec3(0.1f, 0.1f, 0.1f));
+
+		glUniformMatrix4fv(nMapDirLightShader_modelMatrix, 1, GL_FALSE, (GLfloat*)&modelTransform);
+
+		// Loop through array of meshes and render each one
+		for (AIMesh* mesh : tier2Model) {
+
+			mesh->setupTextures();
+			mesh->render();
+		}
+	}
+	if (tier3Model[0]) {
+
+		mat4 modelTransform = glm::translate(identity<mat4>(), vec3(3.0f, 0.0f, 5.0f)) * glm::scale(identity<mat4>(), vec3(0.1f, 0.1f, 0.1f));
+
+		glUniformMatrix4fv(nMapDirLightShader_modelMatrix, 1, GL_FALSE, (GLfloat*)&modelTransform);
+
+		// Loop through array of meshes and render each one
+		for (AIMesh* mesh : tier3Model) {
+
+			mesh->setupTextures();
+			mesh->render();
+		}
 	}
 
 #pragma endregion
