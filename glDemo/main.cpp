@@ -161,6 +161,33 @@ void mouseButtonHandler(GLFWwindow* window, int button, int action, int mods);
 void mouseScrollHandler(GLFWwindow* window, double xoffset, double yoffset);
 void mouseEnterHandler(GLFWwindow* window, int entered);
 
+void multiMesh(string objectFile, string diffuseMapFile, string normalMapFile, vector<AIMesh*> model)
+{
+	const struct aiScene* modelScene = aiImportFile(objectFile.c_str(),
+		aiProcess_GenSmoothNormals |
+		aiProcess_CalcTangentSpace |
+		aiProcess_Triangulate |
+		aiProcess_JoinIdenticalVertices |
+		aiProcess_SortByPType);
+
+	if (modelScene) {
+
+		cout << "Model: " << objectFile << " has " << modelScene->mNumMeshes << " meshe(s)\n";
+
+		if (modelScene->mNumMeshes > 0) {
+
+			// For each sub-mesh, setup a new AIMesh instance in the houseModel array
+			for (int i = 0; i < modelScene->mNumMeshes; i++) {
+
+				cout << "Loading house sub-mesh " << i << endl;
+				model.push_back(new AIMesh(modelScene, i));
+				model[i]->addTexture(diffuseMapFile.c_str(), FIF_BMP);
+				model[i]->addNormalMap(normalMapFile.c_str(), FIF_BMP);
+			}
+		}
+	}
+	else cout << objectFile;
+}
 
 
 int main() {
@@ -286,6 +313,8 @@ int main() {
 	//
 	// House example
 	//
+	//multiMesh(string("C:\\Users\\jajwi\\repos\\CIS5013_PORT1_st20235124\\glDemo\\Assets\\House\\tier1.v2.obj"), string("Assets\\buildings\\house_c3.bmp"), string("Assets\\buildings\\house_n3.bmp"), houseModel);
+	
 	string houseFilename = string("Assets\\House\\tier1.v2.obj");
 	const struct aiScene* houseScene = aiImportFile(houseFilename.c_str(),
 		aiProcess_GenSmoothNormals |
