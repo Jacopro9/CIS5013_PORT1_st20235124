@@ -1,4 +1,3 @@
-
 #include "core.h"
 #include "TextureLoader.h"
 #include "shader_setup.h"
@@ -76,7 +75,7 @@ bool				rightPressed;
 
 
 // Scene objects
-AIMesh*				creatureMesh = nullptr;
+AIMesh*				terrainMesh = nullptr;
 Cylinder*			cylinderMesh = nullptr;
 
 
@@ -120,10 +119,8 @@ GLint				nMapDirLightShader_lightColour;
 // cylinder model
 vec3 cylinderPos = vec3(-2.0f, 2.0f, 0.0f);
 
-// beast model
-vec3 beastPos = vec3(2.0f, 0.0f, 0.0f);
-float beastRotation = 0.0f;
-
+// camera model
+vec3 cameraPos = vec3(2.0f, 0.0f, 0.0f);
 
 // Directional light example (declared as a single instance)
 float directLightTheta = glm::radians(70.0f);
@@ -134,7 +131,7 @@ PointLight lights[1] = {
 	PointLight(vec3(0.0f, 1.0f, 0.0), vec3(1.0f, 0.0f, 0.0f), vec3(1.0f, 0.1f, 0.001f))
 };
 
-bool rotateDirectionalLight = true;
+bool rotateDirectionalLight = false;
 
 
 // multi-mesh models
@@ -143,8 +140,6 @@ vector<AIMesh*> tier2Model = vector<AIMesh*>();
 vector<AIMesh*> tier3Model = vector<AIMesh*>();
 
 vector<AIMesh*> robot = vector<AIMesh*>();
-
-vector<AIMesh*> terrain = vector<AIMesh*>();
 
 #pragma endregion
 
@@ -194,10 +189,8 @@ vector<AIMesh*> multiMesh(string objectFile, string diffuseMapFile, string norma
 
 int main() {
 
-	//
 	// 1. Initialisation
-	//
-	
+
 	gameClock = new GUClock();
 
 #pragma region OpenGL and window setup
@@ -221,7 +214,6 @@ int main() {
 		return -1;
 	}
 	glfwMakeContextCurrent(window);
-	
 
 	// Set callback functions to handle different events
 	glfwSetFramebufferSizeCallback(window, resizeWindow); // resize window callback
@@ -233,13 +225,11 @@ int main() {
 
 	// Initialise glew
 	glewInit();
-
 	
 	// Setup window's initial size
 	resizeWindow(window, windowWidth, windowHeight);
 
 #pragma endregion
-
 
 	// Initialise scene - geometry and shaders etc
 	glClearColor(0.0f, 0.0f, 0.0f, 0.0f); // setup background colour to be black
@@ -255,18 +245,17 @@ int main() {
 	glDepthFunc(GL_LEQUAL);
 
 
-	//
 	// Setup Textures, VBOs and other scene objects
-	//
+
 	mainCamera = new ArcballCamera(-33.0f, 45.0f, 40.0f, 55.0f, (float)windowWidth/(float)windowHeight, 0.1f, 5000.0f);
 
-	creatureMesh = new AIMesh(string("Assets\\beast\\beast.obj"));
-	if (creatureMesh) {
-		creatureMesh->addTexture(string("Assets\\beast\\beast_texture.bmp"), FIF_BMP);
+	terrainMesh = new AIMesh(string("Assets\\terrain\\terrain.obj"));
+	if (terrainMesh) {
+		terrainMesh->addTexture(string("Assets\\terrain\\sand_c.bmp"), FIF_BMP);
+		terrainMesh->addNormalMap(string("Assets\\terrain\\sand_n.bmp"), FIF_BMP);
 	}
 
 	cylinderMesh = new Cylinder(string("Assets\\cylinder\\cylinderT.obj"));
-	
 
 	// Load shaders
 	basicShader = setupShaders(string("Assets\\Shaders\\basic_shader.vert"), string("Assets\\Shaders\\basic_shader.frag"));
@@ -300,28 +289,23 @@ int main() {
 	nMapDirLightShader_lightDirection = glGetUniformLocation(nMapDirLightShader, "lightDirection");
 	nMapDirLightShader_lightColour = glGetUniformLocation(nMapDirLightShader, "lightColour");
 
-
 	// calling multimesh function to import the models
 	tier1Model = multiMesh(string("Assets\\buildings\\tier1.v2.obj"), string("Assets\\buildings\\house_c3.bmp"), string("Assets\\buildings\\house_n3.bmp"));
 	tier2Model = multiMesh(string("Assets\\buildings\\tier2.v2.obj"), string("Assets\\buildings\\house_c3.bmp"), string("Assets\\buildings\\house_n3.bmp"));
 	tier3Model = multiMesh(string("Assets\\buildings\\tier3.obj"), string("Assets\\buildings\\house_c3.bmp"), string("Assets\\buildings\\house_n3.bmp"));
 	
-	//robot = multiMesh(string("Assets\\beast\\robototo1.obj"), string("Assets\\beast\\robot_c.bmp"), string("Assets\\beast\\robot_n.bmp"));
+	robot = multiMesh(string("Assets\\robot\\robototo1.obj"), string("Assets\\robot\\robot_c.bmp"), string("Assets\\robot\\robot_n.bmp"));
+	
 
-	terrain = multiMesh(string("Assets\\terrain\\terrain.obj"), string("Assets\\terrain\\sand_c.bmp"), string("Assets\\terrain\\sand_n.bmp"));
-	
-	
-	//
 	// 2. Main loop
-	// 
 
 	while (!glfwWindowShouldClose(window)) {
 
 		updateScene();
-		renderScene();						// Render into the current buffer
-		glfwSwapBuffers(window);			// Displays what was just rendered (using double buffering).
+		renderScene();					// Render into the current buffer
+		glfwSwapBuffers(window);		// Displays what was just rendered (using double buffering).
 
-		glfwPollEvents();					// Use this version when animating as fast as possible
+		glfwPollEvents();				// Use this version when animating as fast as possible
 	
 		// update window title
 		char timingString[256];
@@ -360,7 +344,7 @@ void renderWithDirectionalLight() {
 
 	// Get camera matrices
 	mat4 cameraProjection = mainCamera->projectionTransform();
-	mat4 cameraView = mainCamera->viewTransform() * translate(identity<mat4>(), -beastPos);
+	mat4 cameraView = mainCamera->viewTransform() * translate(identity<mat4>(), -cameraPos);
 
 #pragma region Render opaque objects
 
@@ -373,19 +357,8 @@ void renderWithDirectionalLight() {
 	glUniform1i(texDirLightShader_texture, 0); // set to point to texture unit 0 for AIMeshes
 	glUniform3fv(texDirLightShader_lightDirection, 1, (GLfloat*)&(directLight.direction));
 	glUniform3fv(texDirLightShader_lightColour, 1, (GLfloat*)&(directLight.colour));
-
-	if (creatureMesh) {
-
-		mat4 modelTransform = glm::translate(identity<mat4>(), beastPos) * eulerAngleY<float>(glm::radians<float>(beastRotation));
-
-		glUniformMatrix4fv(texDirLightShader_modelMatrix, 1, GL_FALSE, (GLfloat*)&modelTransform);
-
-		creatureMesh->setupTextures();
-		creatureMesh->render();
-	}
-
 	
-	//  *** normal mapping ***  Render the normal mapped column
+	//  *** normal mapping ***
 	// Plug in the normal map directional light shader
 	glUseProgram(nMapDirLightShader);
 
@@ -397,7 +370,17 @@ void renderWithDirectionalLight() {
 	glUniform3fv(nMapDirLightShader_lightDirection, 1, (GLfloat*)&(directLight.direction));
 	glUniform3fv(nMapDirLightShader_lightColour, 1, (GLfloat*)&(directLight.colour));
 
-	// Render buildings (follows same pattern / code structure as other objects)
+	if (terrainMesh) {
+
+		mat4 modelTransform = glm::translate(identity<mat4>(), vec3(0.0f, 0.0f, 0.0f)) * glm::scale(identity<mat4>(), vec3(0.1f, 0.1f, 0.1f));
+
+		glUniformMatrix4fv(nMapDirLightShader_modelMatrix, 1, GL_FALSE, (GLfloat*)&modelTransform);
+
+		terrainMesh->setupTextures();
+		terrainMesh->render();
+	}
+
+	// Render models
 	if (!tier1Model.empty()) {
 
 		mat4 modelTransform = glm::translate(identity<mat4>(), vec3(-0.5f, 0.6f, 1.5f)) * glm::scale(identity<mat4>(), vec3(0.1f, 0.1f, 0.1f));
@@ -417,7 +400,6 @@ void renderWithDirectionalLight() {
 
 		glUniformMatrix4fv(nMapDirLightShader_modelMatrix, 1, GL_FALSE, (GLfloat*)&modelTransform);
 
-		// Loop through array of meshes and render each one
 		for (AIMesh* mesh : tier2Model) {
 
 			mesh->setupTextures();
@@ -430,7 +412,6 @@ void renderWithDirectionalLight() {
 
 		glUniformMatrix4fv(nMapDirLightShader_modelMatrix, 1, GL_FALSE, (GLfloat*)&modelTransform);
 
-		// Loop through array of meshes and render each one
 		for (AIMesh* mesh : tier3Model) {
 
 			mesh->setupTextures();
@@ -443,21 +424,7 @@ void renderWithDirectionalLight() {
 
 		glUniformMatrix4fv(nMapDirLightShader_modelMatrix, 1, GL_FALSE, (GLfloat*)&modelTransform);
 
-		// Loop through array of meshes and render each one
 		for (AIMesh* mesh : robot) {
-
-			mesh->setupTextures();
-			mesh->render();
-		}
-	}
-	if (!terrain.empty()) {
-
-		mat4 modelTransform = glm::translate(identity<mat4>(), vec3(0.0f, 0.0f, 0.0f)) * glm::scale(identity<mat4>(), vec3(0.1f, 0.1f, 0.1f));
-
-		glUniformMatrix4fv(nMapDirLightShader_modelMatrix, 1, GL_FALSE, (GLfloat*)&modelTransform);
-
-		// Loop through array of meshes and render each one
-		for (AIMesh* mesh : terrain) {
 
 			mesh->setupTextures();
 			mesh->render();
@@ -485,11 +452,8 @@ void renderWithDirectionalLight() {
 
 #pragma endregion
 
-	
-	//
-	// For demo purposes, render directional light source
-	//
-	
+	// render directional light source
+
 	// Restore fixed-function pipeline
 	glUseProgram(0);
 	glBindVertexArray(0);
@@ -514,7 +478,7 @@ void renderWithPointLight() {
 
 	// Get camera matrices
 	mat4 cameraProjection = mainCamera->projectionTransform();
-	mat4 cameraView = mainCamera->viewTransform() * translate(identity<mat4>(), -beastPos);
+	mat4 cameraView = mainCamera->viewTransform() * translate(identity<mat4>(), -cameraPos);
 
 	// Plug-in texture-point light shader and setup relevant uniform variables
 	// (keep this shader for all textured objects affected by the light source)
@@ -528,16 +492,6 @@ void renderWithPointLight() {
 	glUniform3fv(texPointLightShader_lightAttenuation, 1, (GLfloat*)&(lights[0].attenuation));
 	
 #pragma region Render opaque objects
-
-	if (creatureMesh) {
-
-		mat4 modelTransform = glm::translate(identity<mat4>(), beastPos) * eulerAngleY<float>(glm::radians<float>(beastRotation));
-
-		glUniformMatrix4fv(texPointLightShader_modelMatrix, 1, GL_FALSE, (GLfloat*)&modelTransform);
-
-		creatureMesh->setupTextures();
-		creatureMesh->render();
-	}
 
 #pragma endregion
 
@@ -586,7 +540,7 @@ void renderWithMultipleLights() {
 
 	// Get camera matrices
 	mat4 cameraProjection = mainCamera->projectionTransform();
-	mat4 cameraView = mainCamera->viewTransform() * translate(identity<mat4>(), -beastPos);
+	mat4 cameraView = mainCamera->viewTransform() * translate(identity<mat4>(), -cameraPos);
 
 
 #pragma region Render all opaque objects with directional light
@@ -599,15 +553,6 @@ void renderWithMultipleLights() {
 	glUniform3fv(texDirLightShader_lightDirection, 1, (GLfloat*)&(directLight.direction));
 	glUniform3fv(texDirLightShader_lightColour, 1, (GLfloat*)&(directLight.colour));
 
-	if (creatureMesh) {
-
-		mat4 modelTransform = glm::translate(identity<mat4>(), beastPos) * eulerAngleY<float>(glm::radians<float>(beastRotation));
-
-		glUniformMatrix4fv(texDirLightShader_modelMatrix, 1, GL_FALSE, (GLfloat*)&modelTransform);
-
-		creatureMesh->setupTextures();
-		creatureMesh->render();
-	}
 
 #pragma endregion
 
@@ -630,15 +575,6 @@ void renderWithMultipleLights() {
 	glUniform3fv(texPointLightShader_lightColour, 1, (GLfloat*)&(lights[0].colour));
 	glUniform3fv(texPointLightShader_lightAttenuation, 1, (GLfloat*)&(lights[0].attenuation));
 
-	if (creatureMesh) {
-
-		mat4 modelTransform = glm::translate(identity<mat4>(), beastPos) * eulerAngleY<float>(glm::radians<float>(beastRotation));
-
-		glUniformMatrix4fv(texPointLightShader_modelMatrix, 1, GL_FALSE, (GLfloat*)&modelTransform);
-
-		creatureMesh->setupTextures();
-		creatureMesh->render();
-	}
 
 #pragma endregion
 
@@ -701,36 +637,34 @@ void updateScene() {
 	cylinderMesh->update(tDelta);
 
 	// update main light source
-	if (!rotateDirectionalLight) {
+	if (rotateDirectionalLight) {
 
 		directLightTheta += glm::radians(30.0f) * tDelta;
 		directLight.direction = vec3(cosf(directLightTheta), sinf(directLightTheta), 0.0f);
 	}
 	
 
-	//
 	// Handle movement based on user input
-	//
 
 	float moveSpeed = 3.0f; // movement displacement per second
 	float rotateSpeed = 90.0f; // degrees rotation per second
 
 	if (forwardPressed) {
 		float dPos = -moveSpeed * tDelta; // calc movement based on time elapsed
-		beastPos += vec3( dPos, 0, dPos); // add displacement to position vector
+		cameraPos += vec3( dPos, 0, dPos); // add displacement to position vector
 	}
 	else if (backPressed) {
 		float dPos = moveSpeed * tDelta; // calc movement based on time elapsed
-		beastPos += vec3(dPos, 0, dPos); // add displacement to position vector
+		cameraPos += vec3(dPos, 0, dPos); // add displacement to position vector
 	}
 
 	if (leftPressed) {
 		float dPos = -moveSpeed * tDelta; // calc movement based on time elapsed
-		beastPos += vec3(dPos, 0, -dPos); // add displacement to position vector
+		cameraPos += vec3(dPos, 0, -dPos); // add displacement to position vector
 	}
 	else if (rightPressed) {
 		float dPos = -moveSpeed * tDelta; // calc movement based on time elapsed
-		beastPos += vec3(-dPos, 0, dPos); // add displacement to position vector
+		cameraPos += vec3(-dPos, 0, dPos); // add displacement to position vector
 	}
 
 }
@@ -752,7 +686,6 @@ void resizeWindow(GLFWwindow* window, int width, int height)
 	windowWidth = width;
 	windowHeight = height;
 }
-
 
 // Function to call to handle keyboard input
 void keyboardHandler(GLFWwindow* window, int key, int scancode, int action, int mods)
