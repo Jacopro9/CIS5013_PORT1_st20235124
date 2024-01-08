@@ -71,12 +71,11 @@ double				prevMouseX, prevMouseY;
 // Keyboard tracking
 bool				forwardPressed;
 bool				backPressed;
-bool				rotateLeftPressed;
-bool				rotateRightPressed;
+bool				leftPressed;
+bool				rightPressed;
 
 
 // Scene objects
-AIMesh*				groundMesh = nullptr;
 AIMesh*				creatureMesh = nullptr;
 Cylinder*			cylinderMesh = nullptr;
 
@@ -127,7 +126,7 @@ float beastRotation = 0.0f;
 
 
 // Directional light example (declared as a single instance)
-float directLightTheta = 0.0f;
+float directLightTheta = glm::radians(70.0f);
 DirectionalLight directLight = DirectionalLight(vec3(cosf(directLightTheta), sinf(directLightTheta), 0.0f));
 
 // Setup point light example light (use array to make adding other lights easier later)
@@ -138,19 +137,20 @@ PointLight lights[1] = {
 bool rotateDirectionalLight = true;
 
 
-// House single / multi-mesh example
+// multi-mesh models
 vector<AIMesh*> tier1Model = vector<AIMesh*>();
 vector<AIMesh*> tier2Model = vector<AIMesh*>();
 vector<AIMesh*> tier3Model = vector<AIMesh*>();
 
+vector<AIMesh*> robot = vector<AIMesh*>();
 
+vector<AIMesh*> terrain = vector<AIMesh*>();
 
 #pragma endregion
 
 
 // Function prototypes
 void renderScene();
-void renderHouse();
 void renderWithDirectionalLight();
 void renderWithPointLight();
 void renderWithMultipleLights();
@@ -181,7 +181,7 @@ vector<AIMesh*> multiMesh(string objectFile, string diffuseMapFile, string norma
 			// For each sub-mesh, setup a new AIMesh instance in the houseModel array
 			for (int i = 0; i < modelScene->mNumMeshes; i++) {
 
-				cout << "Loading house sub-mesh " << i << endl;
+				cout << "Loading model sub-mesh " << i << endl;
 				model.push_back(new AIMesh(modelScene, i));
 				model[i]->addTexture(diffuseMapFile.c_str(), FIF_BMP);
 				model[i]->addNormalMap(normalMapFile.c_str(), FIF_BMP);
@@ -259,11 +259,6 @@ int main() {
 	// Setup Textures, VBOs and other scene objects
 	//
 	mainCamera = new ArcballCamera(-33.0f, 45.0f, 40.0f, 55.0f, (float)windowWidth/(float)windowHeight, 0.1f, 5000.0f);
-	
-	groundMesh = new AIMesh(string("Assets\\ground-surface\\surface01.obj"));
-	if (groundMesh) {
-		groundMesh->addTexture("Assets\\ground-surface\\lunar-surface01.png", FIF_PNG);
-	}
 
 	creatureMesh = new AIMesh(string("Assets\\beast\\beast.obj"));
 	if (creatureMesh) {
@@ -306,10 +301,14 @@ int main() {
 	nMapDirLightShader_lightColour = glGetUniformLocation(nMapDirLightShader, "lightColour");
 
 
-	// models of buildings
+	// calling multimesh function to import the models
 	tier1Model = multiMesh(string("Assets\\buildings\\tier1.v2.obj"), string("Assets\\buildings\\house_c3.bmp"), string("Assets\\buildings\\house_n3.bmp"));
 	tier2Model = multiMesh(string("Assets\\buildings\\tier2.v2.obj"), string("Assets\\buildings\\house_c3.bmp"), string("Assets\\buildings\\house_n3.bmp"));
 	tier3Model = multiMesh(string("Assets\\buildings\\tier3.obj"), string("Assets\\buildings\\house_c3.bmp"), string("Assets\\buildings\\house_n3.bmp"));
+	
+	//robot = multiMesh(string("Assets\\beast\\robototo1.obj"), string("Assets\\beast\\robot_c.bmp"), string("Assets\\beast\\robot_n.bmp"));
+
+	terrain = multiMesh(string("Assets\\terrain\\terrain.obj"), string("Assets\\terrain\\sand_c.bmp"), string("Assets\\terrain\\sand_n.bmp"));
 	
 	
 	//
@@ -345,42 +344,9 @@ int main() {
 // renderScene - function to render the current scene
 void renderScene()
 {
-	//renderHouse();
 	renderWithDirectionalLight();
 	//renderWithPointLight();
 	//renderWithMultipleLights();
-}
-
-void renderHouse() {
-
-	// Clear the rendering window
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-	// Get camera matrices
-	mat4 cameraProjection = mainCamera->projectionTransform();
-	mat4 cameraView = mainCamera->viewTransform();
-	
-	// Setup complete transform matrix - the modelling transform scales the house down a bit
-	mat4 mvpMatrix = cameraProjection * cameraView * glm::scale(identity<mat4>(), vec3(10.0f)) * glm::translate(identity<mat4>(), vec3(10.0f, 1.0f, 1.0f));
-
-	// Setup renderer to draw wireframe
-	glDisable(GL_CULL_FACE);
-	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-
-	// Use (very) basic shader and set mvpMatrux uniform variable
-	glUseProgram(basicShader);
-	glUniformMatrix4fv(basicShader_mvpMatrix, 1, GL_FALSE, (GLfloat*)&mvpMatrix);
-
-	// Loop through array of meshes and render each one
-	for (AIMesh* mesh : tier1Model) {
-
-		mesh->render();
-	}
-
-	// Restore fixed-function pipeline
-	glUseProgram(0);
-	glBindVertexArray(0);
-
 }
 
 
@@ -408,16 +374,6 @@ void renderWithDirectionalLight() {
 	glUniform3fv(texDirLightShader_lightDirection, 1, (GLfloat*)&(directLight.direction));
 	glUniform3fv(texDirLightShader_lightColour, 1, (GLfloat*)&(directLight.colour));
 
-	if (groundMesh) {
-
-		mat4 modelTransform = glm::scale(identity<mat4>(), vec3(10.0f, 1.0f, 10.0f));
-
-		glUniformMatrix4fv(texDirLightShader_modelMatrix, 1, GL_FALSE, (GLfloat*)&modelTransform);
-		
-		groundMesh->setupTextures();
-		groundMesh->render();
-	}
-
 	if (creatureMesh) {
 
 		mat4 modelTransform = glm::translate(identity<mat4>(), beastPos) * eulerAngleY<float>(glm::radians<float>(beastRotation));
@@ -442,9 +398,9 @@ void renderWithDirectionalLight() {
 	glUniform3fv(nMapDirLightShader_lightColour, 1, (GLfloat*)&(directLight.colour));
 
 	// Render buildings (follows same pattern / code structure as other objects)
-	if (tier1Model[0]) {
+	if (!tier1Model.empty()) {
 
-		mat4 modelTransform = glm::translate(identity<mat4>(), vec3(0.0f, 0.0f, 2.0f)) * glm::scale(identity<mat4>(), vec3(0.1f, 0.1f, 0.1f));
+		mat4 modelTransform = glm::translate(identity<mat4>(), vec3(-0.5f, 0.6f, 1.5f)) * glm::scale(identity<mat4>(), vec3(0.1f, 0.1f, 0.1f));
 
 		glUniformMatrix4fv(nMapDirLightShader_modelMatrix, 1, GL_FALSE, (GLfloat*)&modelTransform);
 
@@ -455,9 +411,9 @@ void renderWithDirectionalLight() {
 			mesh->render();
 		}
 	}
-	if (tier2Model[0]) {
+	if (!tier2Model.empty()) {
 
-		mat4 modelTransform = glm::translate(identity<mat4>(), vec3(0.0f, 0.0f, 4.0f)) * glm::scale(identity<mat4>(), vec3(0.1f, 0.1f, 0.1f));
+		mat4 modelTransform = glm::translate(identity<mat4>(), vec3(0.0f, 0.3f, -1.0f)) * glm::scale(identity<mat4>(), vec3(0.1f, 0.1f, 0.1f));
 
 		glUniformMatrix4fv(nMapDirLightShader_modelMatrix, 1, GL_FALSE, (GLfloat*)&modelTransform);
 
@@ -468,9 +424,9 @@ void renderWithDirectionalLight() {
 			mesh->render();
 		}
 	}
-	if (tier3Model[0]) {
+	if (!tier3Model.empty()) {
 
-		mat4 modelTransform = glm::translate(identity<mat4>(), vec3(3.0f, 0.0f, 5.0f)) * glm::scale(identity<mat4>(), vec3(0.1f, 0.1f, 0.1f));
+		mat4 modelTransform = glm::translate(identity<mat4>(), vec3(3.5f, 0.0f, 1.5f)) * glm::scale(identity<mat4>(), vec3(0.1f, 0.1f, 0.1f));
 
 		glUniformMatrix4fv(nMapDirLightShader_modelMatrix, 1, GL_FALSE, (GLfloat*)&modelTransform);
 
@@ -481,7 +437,32 @@ void renderWithDirectionalLight() {
 			mesh->render();
 		}
 	}
+	if (!robot.empty()) {
 
+		mat4 modelTransform = glm::translate(identity<mat4>(), vec3(3.5f, 0.4f, 3.5f)) * glm::scale(identity<mat4>(), vec3(0.03f, 0.03f, 0.03f)) * eulerAngleY<float>(glm::radians(270.0f));
+
+		glUniformMatrix4fv(nMapDirLightShader_modelMatrix, 1, GL_FALSE, (GLfloat*)&modelTransform);
+
+		// Loop through array of meshes and render each one
+		for (AIMesh* mesh : robot) {
+
+			mesh->setupTextures();
+			mesh->render();
+		}
+	}
+	if (!terrain.empty()) {
+
+		mat4 modelTransform = glm::translate(identity<mat4>(), vec3(0.0f, 0.0f, 0.0f)) * glm::scale(identity<mat4>(), vec3(0.1f, 0.1f, 0.1f));
+
+		glUniformMatrix4fv(nMapDirLightShader_modelMatrix, 1, GL_FALSE, (GLfloat*)&modelTransform);
+
+		// Loop through array of meshes and render each one
+		for (AIMesh* mesh : terrain) {
+
+			mesh->setupTextures();
+			mesh->render();
+		}
+	}
 #pragma endregion
 
 
@@ -547,16 +528,6 @@ void renderWithPointLight() {
 	glUniform3fv(texPointLightShader_lightAttenuation, 1, (GLfloat*)&(lights[0].attenuation));
 	
 #pragma region Render opaque objects
-
-	if (groundMesh) {
-
-		mat4 modelTransform = glm::scale(identity<mat4>(), vec3(10.0f, 1.0f, 10.0f));
-
-		glUniformMatrix4fv(texPointLightShader_modelMatrix, 1, GL_FALSE, (GLfloat*)&modelTransform);
-
-		groundMesh->setupTextures();
-		groundMesh->render();
-	}
 
 	if (creatureMesh) {
 
@@ -628,16 +599,6 @@ void renderWithMultipleLights() {
 	glUniform3fv(texDirLightShader_lightDirection, 1, (GLfloat*)&(directLight.direction));
 	glUniform3fv(texDirLightShader_lightColour, 1, (GLfloat*)&(directLight.colour));
 
-	if (groundMesh) {
-
-		mat4 modelTransform = glm::scale(identity<mat4>(), vec3(10.0f, 1.0f, 10.0f));
-
-		glUniformMatrix4fv(texDirLightShader_modelMatrix, 1, GL_FALSE, (GLfloat*)&modelTransform);
-
-		groundMesh->setupTextures();
-		groundMesh->render();
-	}
-
 	if (creatureMesh) {
 
 		mat4 modelTransform = glm::translate(identity<mat4>(), beastPos) * eulerAngleY<float>(glm::radians<float>(beastRotation));
@@ -668,16 +629,6 @@ void renderWithMultipleLights() {
 	glUniform3fv(texPointLightShader_lightPosition, 1, (GLfloat*)&(lights[0].pos));
 	glUniform3fv(texPointLightShader_lightColour, 1, (GLfloat*)&(lights[0].colour));
 	glUniform3fv(texPointLightShader_lightAttenuation, 1, (GLfloat*)&(lights[0].attenuation));
-
-	if (groundMesh) {
-
-		mat4 modelTransform = glm::scale(identity<mat4>(), vec3(10.0f, 1.0f, 10.0f));
-
-		glUniformMatrix4fv(texPointLightShader_modelMatrix, 1, GL_FALSE, (GLfloat*)&modelTransform);
-
-		groundMesh->setupTextures();
-		groundMesh->render();
-	}
 
 	if (creatureMesh) {
 
@@ -750,7 +701,7 @@ void updateScene() {
 	cylinderMesh->update(tDelta);
 
 	// update main light source
-	if (rotateDirectionalLight) {
+	if (!rotateDirectionalLight) {
 
 		directLightTheta += glm::radians(30.0f) * tDelta;
 		directLight.direction = vec3(cosf(directLightTheta), sinf(directLightTheta), 0.0f);
@@ -765,25 +716,21 @@ void updateScene() {
 	float rotateSpeed = 90.0f; // degrees rotation per second
 
 	if (forwardPressed) {
-
-		mat4 R = eulerAngleY<float>(glm::radians<float>(beastRotation)); // local coord space / basis vectors - move along z
-		float dPos = moveSpeed * tDelta; // calc movement based on time elapsed
-		beastPos += vec3(R[2].x * dPos, R[2].y * dPos, R[2].z * dPos); // add displacement to position vector
+		float dPos = -moveSpeed * tDelta; // calc movement based on time elapsed
+		beastPos += vec3( dPos, 0, dPos); // add displacement to position vector
 	}
 	else if (backPressed) {
+		float dPos = moveSpeed * tDelta; // calc movement based on time elapsed
+		beastPos += vec3(dPos, 0, dPos); // add displacement to position vector
+	}
 
-		mat4 R = eulerAngleY<float>(glm::radians<float>(beastRotation)); // local coord space / basis vectors - move along z
+	if (leftPressed) {
 		float dPos = -moveSpeed * tDelta; // calc movement based on time elapsed
-		beastPos += vec3(R[2].x * dPos, R[2].y * dPos, R[2].z * dPos); // add displacement to position vector
+		beastPos += vec3(dPos, 0, -dPos); // add displacement to position vector
 	}
-
-	if (rotateLeftPressed) {
-
-		beastRotation += rotateSpeed * tDelta;
-	}
-	else if (rotateRightPressed) {
-
-		beastRotation -= rotateSpeed * tDelta;
+	else if (rightPressed) {
+		float dPos = -moveSpeed * tDelta; // calc movement based on time elapsed
+		beastPos += vec3(-dPos, 0, dPos); // add displacement to position vector
 	}
 
 }
@@ -828,11 +775,11 @@ void keyboardHandler(GLFWwindow* window, int key, int scancode, int action, int 
 				break;
 
 			case GLFW_KEY_A:
-				rotateLeftPressed = true;
+				leftPressed = true;
 				break;
 
 			case GLFW_KEY_D:
-				rotateRightPressed = true;
+				rightPressed = true;
 				break;
 
 			case GLFW_KEY_SPACE:
@@ -857,11 +804,11 @@ void keyboardHandler(GLFWwindow* window, int key, int scancode, int action, int 
 				break;
 
 			case GLFW_KEY_A:
-				rotateLeftPressed = false;
+				leftPressed = false;
 				break;
 
 			case GLFW_KEY_D:
-				rotateRightPressed = false;
+				rightPressed = false;
 				break;
 
 			default:
@@ -890,7 +837,7 @@ void mouseMoveHandler(GLFWwindow* window, double xpos, double ypos) {
 
 void mouseButtonHandler(GLFWwindow* window, int button, int action, int mods) {
 
-	if (button == GLFW_MOUSE_BUTTON_LEFT) {
+	/*if (button == GLFW_MOUSE_BUTTON_LEFT) {
 
 		if (action == GLFW_PRESS) {
 
@@ -901,7 +848,7 @@ void mouseButtonHandler(GLFWwindow* window, int button, int action, int mods) {
 
 			mouseDown = false;
 		}
-	}
+	}*/
 }
 
 void mouseScrollHandler(GLFWwindow* window, double xoffset, double yoffset) {

@@ -1,0 +1,13 @@
+# Blender 3.4.1 MTL File: 'flat.blend'
+# www.blender.org
+
+newmtl Material.001
+Ns 13.966944
+Ka 1.000000 1.000000 1.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 2
+map_Kd C:/Users/jajwi/OneDrive/Pictures/textures/ground/sand_c.tif
+map_Ks C:/Users/jajwi/OneDrive/Pictures/textures/ground/sand_g.tif
+map_Bump -bm 1.000000 C:/Users/jajwi/OneDrive/Pictures/textures/ground/sand_n.tif

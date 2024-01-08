@@ -1,0 +1,13 @@
+# Blender 3.4.1 MTL File: 'robototo.blend'
+# www.blender.org
+
+newmtl robot
+Ns 250.000000
+Ka 1.000000 1.000000 1.000000
+Ni 1.450000
+d 1.000000
+illum 2
+map_Kd C:/Users/jajwi/OneDrive/Pictures/textures/robot/robot_c.tif
+map_Ks C:/Users/jajwi/OneDrive/Pictures/textures/robot/robot_g.tif
+map_Ke C:/Users/jajwi/OneDrive/Pictures/textures/robot/robot_e.tif
+map_Bump -bm 1.000000 C:/Users/jajwi/OneDrive/Pictures/textures/robot/robot_n.tif
