@@ -139,7 +139,6 @@
     <ClInclude Include="AIMesh.h" />
     <ClInclude Include="ArcballCamera.h" />
     <ClInclude Include="core.h" />
-    <ClInclude Include="Cylinder.h" />
     <ClInclude Include="FreeImage\FreeImage.h" />
     <ClInclude Include="FreeImage\FreeImagePlus.h" />
     <ClInclude Include="GLFW\glfw3.h" />
@@ -148,7 +147,6 @@
     <ClInclude Include="GUClock.h" />
     <ClInclude Include="PrincipleAxes.h" />
     <ClInclude Include="shader_setup.h" />
-    <ClInclude Include="Tetrahedron.h" />
     <ClInclude Include="TextureLoader.h" />
     <ClInclude Include="TextureQuad.h" />
   </ItemGroup>
@@ -156,24 +154,14 @@
     <ClCompile Include="AIMesh.cpp" />
     <ClCompile Include="ArcballCamera.cpp" />
     <ClCompile Include="core.cpp" />
-    <ClCompile Include="Cylinder.cpp" />
     <ClCompile Include="GUClock.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="PrincipleAxes.cpp" />
     <ClCompile Include="shader_setup.cpp" />
-    <ClCompile Include="Tetrahedron.cpp" />
     <ClCompile Include="TextureLoader.cpp" />
     <ClCompile Include="TextureQuad.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <Text Include="Assets\Shaders\beast_shader.fs.txt" />
-    <Text Include="Assets\Shaders\beast_shader.vs.txt" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="Assets\beast\beast_shader.frag" />
-    <None Include="Assets\beast\beast_shader.vert" />
-    <None Include="Assets\cylinder\cylinder.frag" />
-    <None Include="Assets\cylinder\cylinder.vert" />
     <None Include="Assets\Shaders\basic_texture.frag" />
     <None Include="Assets\Shaders\basic_texture.vert" />
   </ItemGroup>

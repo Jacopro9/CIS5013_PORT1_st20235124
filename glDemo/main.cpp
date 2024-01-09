@@ -4,7 +4,6 @@
 #include "ArcballCamera.h"
 #include "GUClock.h"
 #include "AIMesh.h"
-#include "Cylinder.h"
 
 
 using namespace std;
@@ -90,25 +89,6 @@ vector<AIMesh*> robot = vector<AIMesh*>();
 GLuint				basicShader;
 GLint				basicShader_mvpMatrix;
 
-// Texture-directional light shader
-GLuint				texDirLightShader;
-GLint				texDirLightShader_modelMatrix;
-GLint				texDirLightShader_viewMatrix;
-GLint				texDirLightShader_projMatrix;
-GLint				texDirLightShader_texture;
-GLint				texDirLightShader_lightDirection;
-GLint				texDirLightShader_lightColour;
-
-// Texture-point light shader
-GLuint				texPointLightShader;
-GLint				texPointLightShader_modelMatrix;
-GLint				texPointLightShader_viewMatrix;
-GLint				texPointLightShader_projMatrix;
-GLint				texPointLightShader_texture;
-GLint				texPointLightShader_lightPosition;
-GLint				texPointLightShader_lightColour;
-GLint				texPointLightShader_lightAttenuation;
-
 //  *** normal mapping *** Normal mapped texture with Directional light
 // This is the same as the texture direct light shader above, but with the addtional uniform variable
 // to set the normal map sampler2D variable in the fragment shader.
@@ -147,7 +127,6 @@ bool rotateDirectionalLight = false;
 
 // Function prototypes
 void renderScene();
-void renderWithDirectionalLight();
 void renderWithMultipleLights();
 void renderWithTransparency();
 void updateScene();
@@ -265,27 +244,10 @@ int main() {
 
 	// Load shaders
 	basicShader = setupShaders(string("Assets\\Shaders\\basic_shader.vert"), string("Assets\\Shaders\\basic_shader.frag"));
-	texPointLightShader = setupShaders(string("Assets\\Shaders\\texture-point.vert"), string("Assets\\Shaders\\texture-point.frag"));
-	texDirLightShader = setupShaders(string("Assets\\Shaders\\texture-directional.vert"), string("Assets\\Shaders\\texture-directional.frag"));
 	nMapDirLightShader = setupShaders(string("Assets\\Shaders\\nmap-directional.vert"), string("Assets\\Shaders\\nmap-directional.frag"));
 
 	// Get uniform variable locations for setting values later during rendering
 	basicShader_mvpMatrix = glGetUniformLocation(basicShader, "mvpMatrix");
-
-	texDirLightShader_modelMatrix = glGetUniformLocation(texDirLightShader, "modelMatrix");
-	texDirLightShader_viewMatrix = glGetUniformLocation(texDirLightShader, "viewMatrix");
-	texDirLightShader_projMatrix = glGetUniformLocation(texDirLightShader, "projMatrix");
-	texDirLightShader_texture = glGetUniformLocation(texDirLightShader, "texture");
-	texDirLightShader_lightDirection = glGetUniformLocation(texDirLightShader, "lightDirection");
-	texDirLightShader_lightColour = glGetUniformLocation(texDirLightShader, "lightColour");
-
-	texPointLightShader_modelMatrix = glGetUniformLocation(texPointLightShader, "modelMatrix");
-	texPointLightShader_viewMatrix = glGetUniformLocation(texPointLightShader, "viewMatrix");
-	texPointLightShader_projMatrix = glGetUniformLocation(texPointLightShader, "projMatrix");
-	texPointLightShader_texture = glGetUniformLocation(texPointLightShader, "texture");
-	texPointLightShader_lightPosition = glGetUniformLocation(texPointLightShader, "lightPosition");
-	texPointLightShader_lightColour = glGetUniformLocation(texPointLightShader, "lightColour");
-	texPointLightShader_lightAttenuation = glGetUniformLocation(texPointLightShader, "lightAttenuation");
 
 	nMapDirLightShader_modelMatrix = glGetUniformLocation(nMapDirLightShader, "modelMatrix");
 	nMapDirLightShader_viewMatrix = glGetUniformLocation(nMapDirLightShader, "viewMatrix");
@@ -334,128 +296,8 @@ int main() {
 // renderScene - function to render the current scene
 void renderScene()
 {
-	//renderWithDirectionalLight();
-	//renderWithMultipleLights();
-	renderWithTransparency();
-}
-
-
-// Demonstrate the use of a single directional light source
-//  *** normal mapping ***  - since we're demonstrating the use of normal mapping with a directional light,
-// the normal mapped objects are rendered here also!
-void renderWithDirectionalLight() {
-
-	// Clear the rendering window
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-	// Get camera matrices
-	mat4 cameraProjection = mainCamera->projectionTransform();
-	mat4 cameraView = mainCamera->viewTransform() * translate(identity<mat4>(), -cameraPos);
-
-#pragma region Render opaque objects with directional light
-
-	// Plug-in texture-directional light shader and setup relevant uniform variables
-	// (keep this shader for all textured objects affected by the light source)
-	glUseProgram(texDirLightShader);
-
-	glUniformMatrix4fv(texDirLightShader_viewMatrix, 1, GL_FALSE, (GLfloat*)&cameraView);
-	glUniformMatrix4fv(texDirLightShader_projMatrix, 1, GL_FALSE, (GLfloat*)&cameraProjection);
-	glUniform1i(texDirLightShader_texture, 0); // set to point to texture unit 0 for AIMeshes
-	glUniform3fv(texDirLightShader_lightDirection, 1, (GLfloat*)&(directLight.direction));
-	glUniform3fv(texDirLightShader_lightColour, 1, (GLfloat*)&(directLight.colour));
-	
-	//  *** normal mapping ***
-	// Plug in the normal map directional light shader
-	glUseProgram(nMapDirLightShader);
-
-	// Setup uniforms
-	glUniformMatrix4fv(nMapDirLightShader_viewMatrix, 1, GL_FALSE, (GLfloat*)&cameraView);
-	glUniformMatrix4fv(nMapDirLightShader_projMatrix, 1, GL_FALSE, (GLfloat*)&cameraProjection);
-	glUniform1i(nMapDirLightShader_diffuseTexture, 0);
-	glUniform1i(nMapDirLightShader_normalMapTexture, 1);
-	glUniform3fv(nMapDirLightShader_lightDirection, 1, (GLfloat*)&(directLight.direction));
-	glUniform3fv(nMapDirLightShader_lightColour, 1, (GLfloat*)&(directLight.colour));
-
-	if (terrainMesh) {
-
-		mat4 modelTransform = glm::scale(identity<mat4>(), vec3(0.1f, 0.1f, 0.1f));
-
-		glUniformMatrix4fv(nMapDirLightShader_modelMatrix, 1, GL_FALSE, (GLfloat*)&modelTransform);
-
-		terrainMesh->setupTextures();
-		terrainMesh->render();
-	}
-
-
-	// Render models
-	if (!tier1Model.empty()) {
-
-		mat4 modelTransform = glm::translate(identity<mat4>(), vec3(-0.5f, 0.6f, 1.5f)) * glm::scale(identity<mat4>(), vec3(0.1f, 0.1f, 0.1f));
-
-		glUniformMatrix4fv(nMapDirLightShader_modelMatrix, 1, GL_FALSE, (GLfloat*)&modelTransform);
-
-		// Loop through array of meshes and render each one
-		for (AIMesh* mesh : tier1Model) {
-			
-			mesh->setupTextures();
-			mesh->render();
-		}
-	}
-	if (!tier2Model.empty()) {
-
-		mat4 modelTransform = glm::translate(identity<mat4>(), vec3(0.0f, 0.3f, -1.0f)) * glm::scale(identity<mat4>(), vec3(0.1f, 0.1f, 0.1f));
-
-		glUniformMatrix4fv(nMapDirLightShader_modelMatrix, 1, GL_FALSE, (GLfloat*)&modelTransform);
-
-		for (AIMesh* mesh : tier2Model) {
-
-			mesh->setupTextures();
-			mesh->render();
-		}
-	}
-	if (!tier3Model.empty()) {
-
-		mat4 modelTransform = glm::translate(identity<mat4>(), vec3(3.5f, 0.0f, 1.5f)) * glm::scale(identity<mat4>(), vec3(0.1f, 0.1f, 0.1f));
-
-		glUniformMatrix4fv(nMapDirLightShader_modelMatrix, 1, GL_FALSE, (GLfloat*)&modelTransform);
-
-		for (AIMesh* mesh : tier3Model) {
-
-			mesh->setupTextures();
-			mesh->render();
-		}
-	}
-	if (!robot.empty()) {
-
-		mat4 modelTransform = glm::translate(identity<mat4>(), vec3(3.5f, 0.4f, 3.5f)) * glm::scale(identity<mat4>(), vec3(0.03f, 0.03f, 0.03f)) * eulerAngleY<float>(glm::radians(270.0f));
-
-		glUniformMatrix4fv(nMapDirLightShader_modelMatrix, 1, GL_FALSE, (GLfloat*)&modelTransform);
-
-		for (AIMesh* mesh : robot) {
-
-			mesh->setupTextures();
-			mesh->render();
-		}
-	}
-#pragma endregion
-
-	// render directional light source
-
-	// Restore fixed-function pipeline
-	glUseProgram(0);
-	glBindVertexArray(0);
-	glDisable(GL_TEXTURE_2D);
-
-	mat4 cameraT = cameraProjection * cameraView;
-	glLoadMatrixf((GLfloat*)&cameraT);
-	glEnable(GL_POINT_SMOOTH);
-	glPointSize(10.0f);
-	glBegin(GL_POINTS);
-
-	glColor3f(directLight.colour.r, directLight.colour.g, directLight.colour.b);
-	glVertex3f(directLight.direction.x * 10.0f, directLight.direction.y * 10.0f, directLight.direction.z * 10.0f);
-
-	glEnd();
+	renderWithMultipleLights();
+	//renderWithTransparency();
 }
 
 // Demonstrate the use of a single directional light source
@@ -471,16 +313,6 @@ void renderWithTransparency() {
 	mat4 cameraView = mainCamera->viewTransform() * translate(identity<mat4>(), -cameraPos);
 
 #pragma region Render opaque objects with directional light
-
-	// Plug-in texture-directional light shader and setup relevant uniform variables
-	// (keep this shader for all textured objects affected by the light source)
-	glUseProgram(texDirLightShader);
-
-	glUniformMatrix4fv(texDirLightShader_viewMatrix, 1, GL_FALSE, (GLfloat*)&cameraView);
-	glUniformMatrix4fv(texDirLightShader_projMatrix, 1, GL_FALSE, (GLfloat*)&cameraProjection);
-	glUniform1i(texDirLightShader_texture, 0); // set to point to texture unit 0 for AIMeshes
-	glUniform3fv(texDirLightShader_lightDirection, 1, (GLfloat*)&(directLight.direction));
-	glUniform3fv(texDirLightShader_lightColour, 1, (GLfloat*)&(directLight.colour));
 
 	//  *** normal mapping ***
 	// Plug in the normal map directional light shader
@@ -605,16 +437,6 @@ void renderWithMultipleLights() {
 	mat4 cameraView = mainCamera->viewTransform() * translate(identity<mat4>(), -cameraPos);
 
 #pragma region Render opaque objects with directional light
-
-	// Plug-in texture-directional light shader and setup relevant uniform variables
-	// (keep this shader for all textured objects affected by the light source)
-	glUseProgram(texDirLightShader);
-
-	glUniformMatrix4fv(texDirLightShader_viewMatrix, 1, GL_FALSE, (GLfloat*)&cameraView);
-	glUniformMatrix4fv(texDirLightShader_projMatrix, 1, GL_FALSE, (GLfloat*)&cameraProjection);
-	glUniform1i(texDirLightShader_texture, 0); // set to point to texture unit 0 for AIMeshes
-	glUniform3fv(texDirLightShader_lightDirection, 1, (GLfloat*)&(directLightBlue.direction));
-	glUniform3fv(texDirLightShader_lightColour, 1, (GLfloat*)&(directLightBlue.colour));
 
 	//  *** normal mapping ***
 	// Plug in the normal map directional light shader

@@ -57,12 +57,6 @@
     <ClInclude Include="shader_setup.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Tetrahedron.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Cylinder.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
@@ -92,30 +86,8 @@
     <ClCompile Include="shader_setup.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Tetrahedron.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Cylinder.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <Text Include="Assets\Shaders\beast_shader.fs.txt" />
-    <Text Include="Assets\Shaders\beast_shader.vs.txt" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="Assets\cylinder\cylinder.frag">
-      <Filter>Shaders</Filter>
-    </None>
-    <None Include="Assets\cylinder\cylinder.vert">
-      <Filter>Shaders</Filter>
-    </None>
-    <None Include="Assets\beast\beast_shader.frag">
-      <Filter>Shaders</Filter>
-    </None>
-    <None Include="Assets\beast\beast_shader.vert">
-      <Filter>Shaders</Filter>
-    </None>
     <None Include="Assets\Shaders\basic_texture.frag">
       <Filter>Shaders</Filter>
     </None>
