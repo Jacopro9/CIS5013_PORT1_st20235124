@@ -76,8 +76,14 @@ bool				rightPressed;
 
 // Scene objects
 AIMesh*				terrainMesh = nullptr;
+AIMesh*				waterMesh = nullptr;
 Cylinder*			cylinderMesh = nullptr;
 
+// multi-mesh models
+vector<AIMesh*> tier1Model = vector<AIMesh*>();
+vector<AIMesh*> tier2Model = vector<AIMesh*>();
+vector<AIMesh*> tier3Model = vector<AIMesh*>();
+vector<AIMesh*> robot = vector<AIMesh*>();
 
 // Shaders
 
@@ -124,22 +130,18 @@ vec3 cameraPos = vec3(2.0f, 0.0f, 0.0f);
 
 // Directional light example (declared as a single instance)
 float directLightTheta = glm::radians(70.0f);
-DirectionalLight directLight = DirectionalLight(vec3(cosf(directLightTheta), sinf(directLightTheta), 0.0f));
+float directLightTheta2 = glm::radians(25.0f);
+float directLightTheta3 = glm::radians(165.0f);
+DirectionalLight directLight = DirectionalLight(vec3(cosf(directLightTheta), sinf(directLightTheta), 0.0f), vec3(1.0f, 1.0f, 1.0f));
+DirectionalLight directLightBlue = DirectionalLight(vec3(cosf(directLightTheta2), sinf(directLightTheta2), 0.0f), vec3(0.0f, 0.0f, 1.0f));
+DirectionalLight directLightPink = DirectionalLight(vec3(cosf(directLightTheta3), sinf(directLightTheta3), 0.0f), vec3(1.0f, 0.0f, 0.0f));
 
 // Setup point light example light (use array to make adding other lights easier later)
 PointLight lights[1] = {
-	PointLight(vec3(0.0f, 1.0f, 0.0), vec3(1.0f, 0.0f, 0.0f), vec3(1.0f, 0.1f, 0.001f))
+	PointLight(vec3(3.5f, 0.4f, 3.5f), vec3(1.0f, 0.0f, 0.0f), vec3(1.0f, 0.1f, 0.001f))
 };
 
 bool rotateDirectionalLight = false;
-
-
-// multi-mesh models
-vector<AIMesh*> tier1Model = vector<AIMesh*>();
-vector<AIMesh*> tier2Model = vector<AIMesh*>();
-vector<AIMesh*> tier3Model = vector<AIMesh*>();
-
-vector<AIMesh*> robot = vector<AIMesh*>();
 
 #pragma endregion
 
@@ -147,8 +149,8 @@ vector<AIMesh*> robot = vector<AIMesh*>();
 // Function prototypes
 void renderScene();
 void renderWithDirectionalLight();
-void renderWithPointLight();
 void renderWithMultipleLights();
+void renderWithTransparency();
 void updateScene();
 void resizeWindow(GLFWwindow* window, int width, int height);
 void keyboardHandler(GLFWwindow* window, int key, int scancode, int action, int mods);
@@ -170,6 +172,7 @@ vector<AIMesh*> multiMesh(string objectFile, string diffuseMapFile, string norma
 	if (modelScene) {
 
 		cout << "Model: " << objectFile << " has " << modelScene->mNumMeshes << " meshe(s)\n";
+
 
 		if (modelScene->mNumMeshes > 0) {
 
@@ -248,11 +251,17 @@ int main() {
 	// Setup Textures, VBOs and other scene objects
 
 	mainCamera = new ArcballCamera(-33.0f, 45.0f, 40.0f, 55.0f, (float)windowWidth/(float)windowHeight, 0.1f, 5000.0f);
-
+	
 	terrainMesh = new AIMesh(string("Assets\\terrain\\terrain.obj"));
 	if (terrainMesh) {
 		terrainMesh->addTexture(string("Assets\\terrain\\sand_c.bmp"), FIF_BMP);
 		terrainMesh->addNormalMap(string("Assets\\terrain\\sand_n.bmp"), FIF_BMP);
+	}
+
+	waterMesh = new AIMesh(string("Assets\\terrain\\water.obj"));
+	if (waterMesh) {
+		waterMesh->addTexture(string("Assets\\terrain\\water.bmp"), FIF_BMP);
+		terrainMesh->addNormalMap(string("Assets\\terrain\\water_n.bmp"), FIF_BMP);
 	}
 
 	cylinderMesh = new Cylinder(string("Assets\\cylinder\\cylinderT.obj"));
@@ -328,9 +337,9 @@ int main() {
 // renderScene - function to render the current scene
 void renderScene()
 {
-	renderWithDirectionalLight();
-	//renderWithPointLight();
+	//renderWithDirectionalLight();
 	//renderWithMultipleLights();
+	renderWithTransparency();
 }
 
 
@@ -346,7 +355,7 @@ void renderWithDirectionalLight() {
 	mat4 cameraProjection = mainCamera->projectionTransform();
 	mat4 cameraView = mainCamera->viewTransform() * translate(identity<mat4>(), -cameraPos);
 
-#pragma region Render opaque objects
+#pragma region Render opaque objects with directional light
 
 	// Plug-in texture-directional light shader and setup relevant uniform variables
 	// (keep this shader for all textured objects affected by the light source)
@@ -372,13 +381,14 @@ void renderWithDirectionalLight() {
 
 	if (terrainMesh) {
 
-		mat4 modelTransform = glm::translate(identity<mat4>(), vec3(0.0f, 0.0f, 0.0f)) * glm::scale(identity<mat4>(), vec3(0.1f, 0.1f, 0.1f));
+		mat4 modelTransform = glm::scale(identity<mat4>(), vec3(0.1f, 0.1f, 0.1f));
 
 		glUniformMatrix4fv(nMapDirLightShader_modelMatrix, 1, GL_FALSE, (GLfloat*)&modelTransform);
 
 		terrainMesh->setupTextures();
 		terrainMesh->render();
 	}
+
 
 	// Render models
 	if (!tier1Model.empty()) {
@@ -432,20 +442,134 @@ void renderWithDirectionalLight() {
 	}
 #pragma endregion
 
+	// render directional light source
+
+	// Restore fixed-function pipeline
+	glUseProgram(0);
+	glBindVertexArray(0);
+	glDisable(GL_TEXTURE_2D);
+
+	mat4 cameraT = cameraProjection * cameraView;
+	glLoadMatrixf((GLfloat*)&cameraT);
+	glEnable(GL_POINT_SMOOTH);
+	glPointSize(10.0f);
+	glBegin(GL_POINTS);
+
+	glColor3f(directLight.colour.r, directLight.colour.g, directLight.colour.b);
+	glVertex3f(directLight.direction.x * 10.0f, directLight.direction.y * 10.0f, directLight.direction.z * 10.0f);
+
+	glEnd();
+}
+
+// Demonstrate the use of a single directional light source
+//  *** normal mapping ***  - since we're demonstrating the use of normal mapping with a directional light,
+// the normal mapped objects are rendered here also!
+void renderWithTransparency() {
+
+	// Clear the rendering window
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+	// Get camera matrices
+	mat4 cameraProjection = mainCamera->projectionTransform();
+	mat4 cameraView = mainCamera->viewTransform() * translate(identity<mat4>(), -cameraPos);
+
+#pragma region Render opaque objects with directional light
+
+	// Plug-in texture-directional light shader and setup relevant uniform variables
+	// (keep this shader for all textured objects affected by the light source)
+	glUseProgram(texDirLightShader);
+
+	glUniformMatrix4fv(texDirLightShader_viewMatrix, 1, GL_FALSE, (GLfloat*)&cameraView);
+	glUniformMatrix4fv(texDirLightShader_projMatrix, 1, GL_FALSE, (GLfloat*)&cameraProjection);
+	glUniform1i(texDirLightShader_texture, 0); // set to point to texture unit 0 for AIMeshes
+	glUniform3fv(texDirLightShader_lightDirection, 1, (GLfloat*)&(directLight.direction));
+	glUniform3fv(texDirLightShader_lightColour, 1, (GLfloat*)&(directLight.colour));
+
+	//  *** normal mapping ***
+	// Plug in the normal map directional light shader
+	glUseProgram(nMapDirLightShader);
+
+	// Setup uniforms
+	glUniformMatrix4fv(nMapDirLightShader_viewMatrix, 1, GL_FALSE, (GLfloat*)&cameraView);
+	glUniformMatrix4fv(nMapDirLightShader_projMatrix, 1, GL_FALSE, (GLfloat*)&cameraProjection);
+	glUniform1i(nMapDirLightShader_diffuseTexture, 0);
+	glUniform1i(nMapDirLightShader_normalMapTexture, 1);
+	glUniform3fv(nMapDirLightShader_lightDirection, 1, (GLfloat*)&(directLight.direction));
+	glUniform3fv(nMapDirLightShader_lightColour, 1, (GLfloat*)&(directLight.colour));
+
+	if (terrainMesh) {
+
+		mat4 modelTransform = glm::scale(identity<mat4>(), vec3(0.1f, 0.1f, 0.1f));
+
+		glUniformMatrix4fv(nMapDirLightShader_modelMatrix, 1, GL_FALSE, (GLfloat*)&modelTransform);
+
+		terrainMesh->setupTextures();
+		terrainMesh->render();
+	}
+	if (!tier1Model.empty()) {
+
+		mat4 modelTransform = glm::translate(identity<mat4>(), vec3(-0.5f, 0.6f, 1.5f)) * glm::scale(identity<mat4>(), vec3(0.1f, 0.1f, 0.1f));
+
+		glUniformMatrix4fv(nMapDirLightShader_modelMatrix, 1, GL_FALSE, (GLfloat*)&modelTransform);
+
+		// Loop through array of meshes and render each one
+		for (AIMesh* mesh : tier1Model) {
+
+			mesh->setupTextures();
+			mesh->render();
+		}
+	}
+	if (!tier2Model.empty()) {
+
+		mat4 modelTransform = glm::translate(identity<mat4>(), vec3(0.0f, 0.3f, -1.0f)) * glm::scale(identity<mat4>(), vec3(0.1f, 0.1f, 0.1f));
+
+		glUniformMatrix4fv(nMapDirLightShader_modelMatrix, 1, GL_FALSE, (GLfloat*)&modelTransform);
+
+		for (AIMesh* mesh : tier2Model) {
+
+			mesh->setupTextures();
+			mesh->render();
+		}
+	}
+	if (!tier3Model.empty()) {
+
+		mat4 modelTransform = glm::translate(identity<mat4>(), vec3(3.5f, 0.0f, 1.5f)) * glm::scale(identity<mat4>(), vec3(0.1f, 0.1f, 0.1f));
+
+		glUniformMatrix4fv(nMapDirLightShader_modelMatrix, 1, GL_FALSE, (GLfloat*)&modelTransform);
+
+		for (AIMesh* mesh : tier3Model) {
+
+			mesh->setupTextures();
+			mesh->render();
+		}
+	}
+	if (!robot.empty()) {
+
+		mat4 modelTransform = glm::translate(identity<mat4>(), vec3(3.5f, 0.4f, 3.5f)) * glm::scale(identity<mat4>(), vec3(0.03f, 0.03f, 0.03f)) * eulerAngleY<float>(glm::radians(270.0f));
+
+		glUniformMatrix4fv(nMapDirLightShader_modelMatrix, 1, GL_FALSE, (GLfloat*)&modelTransform);
+
+		for (AIMesh* mesh : robot) {
+
+			mesh->setupTextures();
+			mesh->render();
+		}
+	}
+#pragma endregion
 
 #pragma region Render transparant objects
 
-	// Done with textured meshes - render transparent objects now (cylinder in this example)...
-
 	glEnable(GL_BLEND);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	glBlendFunc(GL_ONE, GL_ONE);
 
-	if (cylinderMesh) {
+	if (waterMesh) {
 
-		mat4 T = cameraProjection * cameraView * glm::translate(identity<mat4>(), cylinderPos);
+		mat4 modelTransform = glm::scale(identity<mat4>(), vec3(0.1f, 0.1f, 0.1f));
 
-		cylinderMesh->setupTextures();
-		cylinderMesh->render(T);
+		glUniformMatrix4fv(nMapDirLightShader_modelMatrix, 1, GL_FALSE, (GLfloat*)&modelTransform);
+
+		waterMesh->setupTextures();
+		waterMesh->render();
 	}
 
 	glDisable(GL_BLEND);
@@ -464,75 +588,16 @@ void renderWithDirectionalLight() {
 	glEnable(GL_POINT_SMOOTH);
 	glPointSize(10.0f);
 	glBegin(GL_POINTS);
+
 	glColor3f(directLight.colour.r, directLight.colour.g, directLight.colour.b);
 	glVertex3f(directLight.direction.x * 10.0f, directLight.direction.y * 10.0f, directLight.direction.z * 10.0f);
+
 	glEnd();
 }
 
 
-// Demonstrate the use of a single point light source
-void renderWithPointLight() {
-
-	// Clear the rendering window
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-	// Get camera matrices
-	mat4 cameraProjection = mainCamera->projectionTransform();
-	mat4 cameraView = mainCamera->viewTransform() * translate(identity<mat4>(), -cameraPos);
-
-	// Plug-in texture-point light shader and setup relevant uniform variables
-	// (keep this shader for all textured objects affected by the light source)
-	glUseProgram(texPointLightShader);
-
-	glUniformMatrix4fv(texPointLightShader_viewMatrix, 1, GL_FALSE, (GLfloat*)&cameraView);
-	glUniformMatrix4fv(texPointLightShader_projMatrix, 1, GL_FALSE, (GLfloat*)&cameraProjection);
-	glUniform1i(texPointLightShader_texture, 0); // set to point to texture unit 0 for AIMeshes
-	glUniform3fv(texPointLightShader_lightPosition, 1, (GLfloat*)&(lights[0].pos));
-	glUniform3fv(texPointLightShader_lightColour, 1, (GLfloat*)&(lights[0].colour));
-	glUniform3fv(texPointLightShader_lightAttenuation, 1, (GLfloat*)&(lights[0].attenuation));
-	
-#pragma region Render opaque objects
-
-#pragma endregion
-
-#pragma region Render transparant objects
-
-	glEnable(GL_BLEND);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-	if (cylinderMesh) {
-
-		mat4 T = cameraProjection * cameraView * glm::translate(identity<mat4>(), cylinderPos);
-
-		cylinderMesh->setupTextures();
-		cylinderMesh->render(T);
-	}
-
-	glDisable(GL_BLEND);
-
-#pragma endregion
-
-
-	//
-	// For demo purposes, render point light source
-	//
-
-	// Restore fixed-function
-	glUseProgram(0);
-	glBindVertexArray(0);
-	glDisable(GL_TEXTURE_2D);
-
-	mat4 cameraT = cameraProjection * cameraView;
-	glLoadMatrixf((GLfloat*)&cameraT);
-	glEnable(GL_POINT_SMOOTH);
-	glPointSize(10.0f);
-	glBegin(GL_POINTS);
-	glColor3f(lights[0].colour.r, lights[0].colour.g, lights[0].colour.b);
-	glVertex3f(lights[0].pos.x, lights[0].pos.y, lights[0].pos.z);
-	glEnd();
-}
-
-
+// Demonstrate the use of a multiple coloured directional light sources
+// also uses normal mapping
 void renderWithMultipleLights() {
 
 	// Clear the rendering window
@@ -542,66 +607,173 @@ void renderWithMultipleLights() {
 	mat4 cameraProjection = mainCamera->projectionTransform();
 	mat4 cameraView = mainCamera->viewTransform() * translate(identity<mat4>(), -cameraPos);
 
+#pragma region Render opaque objects with directional light
 
-#pragma region Render all opaque objects with directional light
-
+	// Plug-in texture-directional light shader and setup relevant uniform variables
+	// (keep this shader for all textured objects affected by the light source)
 	glUseProgram(texDirLightShader);
 
 	glUniformMatrix4fv(texDirLightShader_viewMatrix, 1, GL_FALSE, (GLfloat*)&cameraView);
 	glUniformMatrix4fv(texDirLightShader_projMatrix, 1, GL_FALSE, (GLfloat*)&cameraProjection);
 	glUniform1i(texDirLightShader_texture, 0); // set to point to texture unit 0 for AIMeshes
-	glUniform3fv(texDirLightShader_lightDirection, 1, (GLfloat*)&(directLight.direction));
-	glUniform3fv(texDirLightShader_lightColour, 1, (GLfloat*)&(directLight.colour));
+	glUniform3fv(texDirLightShader_lightDirection, 1, (GLfloat*)&(directLightBlue.direction));
+	glUniform3fv(texDirLightShader_lightColour, 1, (GLfloat*)&(directLightBlue.colour));
 
+	//  *** normal mapping ***
+	// Plug in the normal map directional light shader
+	glUseProgram(nMapDirLightShader);
 
+	// Setup uniforms
+	glUniformMatrix4fv(nMapDirLightShader_viewMatrix, 1, GL_FALSE, (GLfloat*)&cameraView);
+	glUniformMatrix4fv(nMapDirLightShader_projMatrix, 1, GL_FALSE, (GLfloat*)&cameraProjection);
+	glUniform1i(nMapDirLightShader_diffuseTexture, 0);
+	glUniform1i(nMapDirLightShader_normalMapTexture, 1);
+	glUniform3fv(nMapDirLightShader_lightDirection, 1, (GLfloat*)&(directLight.direction));
+	glUniform3fv(nMapDirLightShader_lightColour, 1, (GLfloat*)&(directLight.colour));
+
+	if (terrainMesh) {
+
+		mat4 modelTransform = glm::scale(identity<mat4>(), vec3(0.1f, 0.1f, 0.1f));
+
+		glUniformMatrix4fv(nMapDirLightShader_modelMatrix, 1, GL_FALSE, (GLfloat*)&modelTransform);
+
+		terrainMesh->setupTextures();
+		terrainMesh->render();
+	}
+
+	// Render models
+	if (!tier1Model.empty()) {
+
+		mat4 modelTransform = glm::translate(identity<mat4>(), vec3(-0.5f, 0.6f, 1.5f)) * glm::scale(identity<mat4>(), vec3(0.1f, 0.1f, 0.1f));
+
+		glUniformMatrix4fv(nMapDirLightShader_modelMatrix, 1, GL_FALSE, (GLfloat*)&modelTransform);
+
+		// Loop through array of meshes and render each one
+		for (AIMesh* mesh : tier1Model) {
+
+			mesh->setupTextures();
+			mesh->render();
+		}
+	}
+	if (!tier2Model.empty()) {
+
+		mat4 modelTransform = glm::translate(identity<mat4>(), vec3(0.0f, 0.3f, -1.0f)) * glm::scale(identity<mat4>(), vec3(0.1f, 0.1f, 0.1f));
+
+		glUniformMatrix4fv(nMapDirLightShader_modelMatrix, 1, GL_FALSE, (GLfloat*)&modelTransform);
+
+		for (AIMesh* mesh : tier2Model) {
+
+			mesh->setupTextures();
+			mesh->render();
+		}
+	}
+	if (!tier3Model.empty()) {
+
+		mat4 modelTransform = glm::translate(identity<mat4>(), vec3(3.5f, 0.0f, 1.5f)) * glm::scale(identity<mat4>(), vec3(0.1f, 0.1f, 0.1f));
+
+		glUniformMatrix4fv(nMapDirLightShader_modelMatrix, 1, GL_FALSE, (GLfloat*)&modelTransform);
+
+		for (AIMesh* mesh : tier3Model) {
+
+			mesh->setupTextures();
+			mesh->render();
+		}
+	}
+	if (!robot.empty()) {
+
+		mat4 modelTransform = glm::translate(identity<mat4>(), vec3(3.5f, 0.4f, 3.5f)) * glm::scale(identity<mat4>(), vec3(0.03f, 0.03f, 0.03f)) * eulerAngleY<float>(glm::radians(270.0f));
+
+		glUniformMatrix4fv(nMapDirLightShader_modelMatrix, 1, GL_FALSE, (GLfloat*)&modelTransform);
+
+		for (AIMesh* mesh : robot) {
+
+			mesh->setupTextures();
+			mesh->render();
+		}
+	}
 #pragma endregion
-
-
-
 	// Enable additive blending for ***subsequent*** light sources!!!
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_ONE, GL_ONE);
 
+#pragma region Render opaque objects with 2nd directional light
 
+	//  *** normal mapping ***
+	// Plug in the normal map directional light shader
+	glUseProgram(nMapDirLightShader);
 
-#pragma region Render all opaque objects with point light
+	// Setup uniforms
+	glUniformMatrix4fv(nMapDirLightShader_viewMatrix, 1, GL_FALSE, (GLfloat*)&cameraView);
+	glUniformMatrix4fv(nMapDirLightShader_projMatrix, 1, GL_FALSE, (GLfloat*)&cameraProjection);
+	glUniform1i(nMapDirLightShader_diffuseTexture, 0);
+	glUniform1i(nMapDirLightShader_normalMapTexture, 1);
+	glUniform3fv(nMapDirLightShader_lightDirection, 1, (GLfloat*)&(directLightPink.direction));
+	glUniform3fv(nMapDirLightShader_lightColour, 1, (GLfloat*)&(directLightPink.colour));
 
-	glUseProgram(texPointLightShader);
+	if (terrainMesh) {
 
-	glUniformMatrix4fv(texPointLightShader_viewMatrix, 1, GL_FALSE, (GLfloat*)&cameraView);
-	glUniformMatrix4fv(texPointLightShader_projMatrix, 1, GL_FALSE, (GLfloat*)&cameraProjection);
-	glUniform1i(texPointLightShader_texture, 0); // set to point to texture unit 0 for AIMeshes
-	glUniform3fv(texPointLightShader_lightPosition, 1, (GLfloat*)&(lights[0].pos));
-	glUniform3fv(texPointLightShader_lightColour, 1, (GLfloat*)&(lights[0].colour));
-	glUniform3fv(texPointLightShader_lightAttenuation, 1, (GLfloat*)&(lights[0].attenuation));
+		mat4 modelTransform = glm::scale(identity<mat4>(), vec3(0.1f, 0.1f, 0.1f));
 
+		glUniformMatrix4fv(nMapDirLightShader_modelMatrix, 1, GL_FALSE, (GLfloat*)&modelTransform);
 
-#pragma endregion
-
-
-#pragma region Render transparant objects
-
-	glEnable(GL_BLEND);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-	if (cylinderMesh) {
-
-		mat4 T = cameraProjection * cameraView * glm::translate(identity<mat4>(), cylinderPos);
-
-		cylinderMesh->setupTextures();
-		cylinderMesh->render(T);
+		terrainMesh->setupTextures();
+		terrainMesh->render();
 	}
 
-	glDisable(GL_BLEND);
+	// Render models
+	if (!tier1Model.empty()) {
 
+		mat4 modelTransform = glm::translate(identity<mat4>(), vec3(-0.5f, 0.6f, 1.5f)) * glm::scale(identity<mat4>(), vec3(0.1f, 0.1f, 0.1f));
+
+		glUniformMatrix4fv(nMapDirLightShader_modelMatrix, 1, GL_FALSE, (GLfloat*)&modelTransform);
+
+		// Loop through array of meshes and render each one
+		for (AIMesh* mesh : tier1Model) {
+
+			mesh->setupTextures();
+			mesh->render();
+		}
+	}
+	if (!tier2Model.empty()) {
+
+		mat4 modelTransform = glm::translate(identity<mat4>(), vec3(0.0f, 0.3f, -1.0f)) * glm::scale(identity<mat4>(), vec3(0.1f, 0.1f, 0.1f));
+
+		glUniformMatrix4fv(nMapDirLightShader_modelMatrix, 1, GL_FALSE, (GLfloat*)&modelTransform);
+
+		for (AIMesh* mesh : tier2Model) {
+
+			mesh->setupTextures();
+			mesh->render();
+		}
+	}
+	if (!tier3Model.empty()) {
+
+		mat4 modelTransform = glm::translate(identity<mat4>(), vec3(3.5f, 0.0f, 1.5f)) * glm::scale(identity<mat4>(), vec3(0.1f, 0.1f, 0.1f));
+
+		glUniformMatrix4fv(nMapDirLightShader_modelMatrix, 1, GL_FALSE, (GLfloat*)&modelTransform);
+
+		for (AIMesh* mesh : tier3Model) {
+
+			mesh->setupTextures();
+			mesh->render();
+		}
+	}
+	if (!robot.empty()) {
+
+		mat4 modelTransform = glm::translate(identity<mat4>(), vec3(3.5f, 0.4f, 3.5f)) * glm::scale(identity<mat4>(), vec3(0.03f, 0.03f, 0.03f)) * eulerAngleY<float>(glm::radians(270.0f));
+
+		glUniformMatrix4fv(nMapDirLightShader_modelMatrix, 1, GL_FALSE, (GLfloat*)&modelTransform);
+
+		for (AIMesh* mesh : robot) {
+
+			mesh->setupTextures();
+			mesh->render();
+		}
+	}
+	glDisable(GL_BLEND);
 #pragma endregion
 
-
-	//
-	// For demo purposes, render light sources
-	//
-
-	// Restore fixed-function
+	// Restore fixed-function pipeline
 	glUseProgram(0);
 	glBindVertexArray(0);
 	glDisable(GL_TEXTURE_2D);
@@ -610,18 +782,16 @@ void renderWithMultipleLights() {
 	glLoadMatrixf((GLfloat*)&cameraT);
 	glEnable(GL_POINT_SMOOTH);
 	glPointSize(10.0f);
-	
 	glBegin(GL_POINTS);
 
-	glColor3f(directLight.colour.r, directLight.colour.g, directLight.colour.b);
-	glVertex3f(directLight.direction.x * 10.0f, directLight.direction.y * 10.0f, directLight.direction.z * 10.0f);
+	glColor3f(directLightPink.colour.r, directLightPink.colour.g, directLightPink.colour.b);
+	glVertex3f(directLightPink.direction.x * 10.0f, directLightPink.direction.y * 10.0f, directLightPink.direction.z * 10.0f);
 
-	glColor3f(lights[0].colour.r, lights[0].colour.g, lights[0].colour.b);
-	glVertex3f(lights[0].pos.x, lights[0].pos.y, lights[0].pos.z);
-	
+	glColor3f(directLightBlue.colour.r, directLightBlue.colour.g, directLightBlue.colour.b);
+	glVertex3f(directLightBlue.direction.x * 10.0f, directLightBlue.direction.y * 10.0f, directLightBlue.direction.z * 10.0f);
+
 	glEnd();
 }
-
 
 // Function called to animate elements in the scene
 void updateScene() {
