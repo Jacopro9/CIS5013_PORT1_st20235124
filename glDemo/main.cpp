@@ -77,7 +77,6 @@ bool				rightPressed;
 // Scene objects
 AIMesh*				terrainMesh = nullptr;
 AIMesh*				waterMesh = nullptr;
-Cylinder*			cylinderMesh = nullptr;
 
 // multi-mesh models
 vector<AIMesh*> tier1Model = vector<AIMesh*>();
@@ -173,16 +172,16 @@ vector<AIMesh*> multiMesh(string objectFile, string diffuseMapFile, string norma
 
 		cout << "Model: " << objectFile << " has " << modelScene->mNumMeshes << " meshe(s)\n";
 
-
 		if (modelScene->mNumMeshes > 0) {
-
+			GLuint texture = loadTexture(diffuseMapFile.c_str(), FIF_BMP);
+			GLuint normapMap = loadTexture(normalMapFile.c_str(), FIF_BMP);
 			// For each sub-mesh, setup a new AIMesh instance in the houseModel array
 			for (int i = 0; i < modelScene->mNumMeshes; i++) {
 
 				cout << "Loading model sub-mesh " << i << endl;
 				model.push_back(new AIMesh(modelScene, i));
-				model[i]->addTexture(diffuseMapFile.c_str(), FIF_BMP);
-				model[i]->addNormalMap(normalMapFile.c_str(), FIF_BMP);
+				model[i]->addTexture(texture);
+				model[i]->addNormalMap(normapMap);
 			}
 			return model;
 		}
@@ -261,10 +260,8 @@ int main() {
 	waterMesh = new AIMesh(string("Assets\\terrain\\water.obj"));
 	if (waterMesh) {
 		waterMesh->addTexture(string("Assets\\terrain\\water.bmp"), FIF_BMP);
-		terrainMesh->addNormalMap(string("Assets\\terrain\\water_n.bmp"), FIF_BMP);
+		waterMesh->addNormalMap(string("Assets\\terrain\\water_n.bmp"), FIF_BMP);
 	}
-
-	cylinderMesh = new Cylinder(string("Assets\\cylinder\\cylinderT.obj"));
 
 	// Load shaders
 	basicShader = setupShaders(string("Assets\\Shaders\\basic_shader.vert"), string("Assets\\Shaders\\basic_shader.frag"));
@@ -804,15 +801,12 @@ void updateScene() {
 		tDelta = (float)gameClock->gameTimeDelta();
 	}
 
-	cylinderMesh->update(tDelta);
-
 	// update main light source
 	if (rotateDirectionalLight) {
 
 		directLightTheta += glm::radians(30.0f) * tDelta;
 		directLight.direction = vec3(cosf(directLightTheta), sinf(directLightTheta), 0.0f);
 	}
-	
 
 	// Handle movement based on user input
 
