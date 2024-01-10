@@ -101,10 +101,7 @@ GLint				nMapDirLightShader_normalMapTexture;
 GLint				nMapDirLightShader_lightDirection;
 GLint				nMapDirLightShader_lightColour;
 
-// cylinder model
-vec3 cylinderPos = vec3(-2.0f, 2.0f, 0.0f);
-
-// camera model
+// camera
 vec3 cameraPos = vec3(2.0f, 0.0f, 0.0f);
 
 // Directional light example (declared as a single instance)
@@ -112,8 +109,8 @@ float directLightTheta = glm::radians(70.0f);
 float directLightTheta2 = glm::radians(25.0f);
 float directLightTheta3 = glm::radians(165.0f);
 DirectionalLight directLight = DirectionalLight(vec3(cosf(directLightTheta), sinf(directLightTheta), 0.0f), vec3(1.0f, 1.0f, 1.0f));
-DirectionalLight directLightBlue = DirectionalLight(vec3(cosf(directLightTheta2), sinf(directLightTheta2), 0.0f), vec3(0.0f, 0.0f, 1.0f));
-DirectionalLight directLightPink = DirectionalLight(vec3(cosf(directLightTheta3), sinf(directLightTheta3), 0.0f), vec3(1.0f, 0.0f, 0.0f));
+DirectionalLight directLightBlue = DirectionalLight(vec3(cosf(directLightTheta2), sinf(directLightTheta2), 0.0f), vec3(0.2f, 0.2f, 1.0f));
+DirectionalLight directLightPink = DirectionalLight(vec3(cosf(directLightTheta3), sinf(directLightTheta3), 0.0f), vec3(1.0f, 0.2f, 0.2f));
 
 // Setup point light example light (use array to make adding other lights easier later)
 PointLight lights[1] = {
@@ -296,8 +293,8 @@ int main() {
 // renderScene - function to render the current scene
 void renderScene()
 {
-	renderWithMultipleLights();
-	//renderWithTransparency();
+	//renderWithMultipleLights();
+	renderWithTransparency();
 }
 
 // Demonstrate the use of a single directional light source
@@ -389,6 +386,7 @@ void renderWithTransparency() {
 #pragma region Render transparant objects
 
 	glEnable(GL_BLEND);
+	//if there were multiple transparent objects, alpha and one minus alpha should be used instead
 	glBlendFunc(GL_ONE, GL_ONE);
 
 	if (waterMesh) {
@@ -447,8 +445,8 @@ void renderWithMultipleLights() {
 	glUniformMatrix4fv(nMapDirLightShader_projMatrix, 1, GL_FALSE, (GLfloat*)&cameraProjection);
 	glUniform1i(nMapDirLightShader_diffuseTexture, 0);
 	glUniform1i(nMapDirLightShader_normalMapTexture, 1);
-	glUniform3fv(nMapDirLightShader_lightDirection, 1, (GLfloat*)&(directLight.direction));
-	glUniform3fv(nMapDirLightShader_lightColour, 1, (GLfloat*)&(directLight.colour));
+	glUniform3fv(nMapDirLightShader_lightDirection, 1, (GLfloat*)&(directLightBlue.direction));
+	glUniform3fv(nMapDirLightShader_lightColour, 1, (GLfloat*)&(directLightBlue.colour));
 
 	if (terrainMesh) {
 
